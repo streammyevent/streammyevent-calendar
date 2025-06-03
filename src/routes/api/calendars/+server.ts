@@ -1,0 +1,56 @@
+import { json } from '@sveltejs/kit';
+import { convertIcsCalendar, type IcsCalendar } from 'ts-ics';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import type { RequestHandler } from './$types';
+
+interface Calendar {
+	name: string;
+	icsUrl: string;
+}
+
+interface CalendarData {
+	name: string;
+	events: any[];
+}
+
+export const GET: RequestHandler = async () => {
+	try {
+		// Read config from project root
+		const configPath = join(process.cwd(), 'config.json');
+		const configText = readFileSync(configPath, 'utf-8');
+		const config = JSON.parse(configText);
+		const calendars: Calendar[] = config.calendars;
+
+		const calendarData: CalendarData[] = await Promise.all(
+			calendars.map(async (calendar) => {
+				try {
+					const icsResponse = await fetch(calendar.icsUrl);
+					
+					if (!icsResponse.ok) {
+						throw new Error(`HTTP ${icsResponse.status}: ${icsResponse.statusText}`);
+					}
+					
+					const icsText = await icsResponse.text();
+					const parsed = convertIcsCalendar(undefined, icsText);
+					
+					return {
+						name: calendar.name,
+						events: parsed.events || []
+					};
+				} catch (error) {
+					console.error(`Failed to load calendar ${calendar.name}:`, error);
+					return {
+						name: calendar.name,
+						events: []
+					};
+				}
+			})
+		);
+
+		return json(calendarData);
+	} catch (error) {
+		console.error('Failed to load calendars:', error);
+		return json([], { status: 500 });
+	}
+};
