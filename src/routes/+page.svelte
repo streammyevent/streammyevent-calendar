@@ -11,7 +11,7 @@
 	}
 
 	let { data }: { data: PageData } = $props();
-	
+
 	console.log('Page data:', data);
 	let calendarData = $derived(data?.calendarData || []);
 
@@ -440,13 +440,6 @@
 				(eventEndDateObj.getTime() - windowDate.getTime()) / (1000 * 60 * 60 * 24)
 			);
 
-			// Minimal debug for key events
-			if (event.summary.toLowerCase().includes('koffee')) {
-				console.log(`${event.summary}: ${eventStart.toDateString()} → column ${startColumn}`);
-				console.log(`Window start: ${windowStart.toDateString()}`);
-				console.log(`Expected: column 1 for Monday (today), got column ${startColumn}`);
-			}
-
 			// Handle all-day events and column boundaries
 			if (isAllDayEvent(event)) {
 				endColumn = endColumn - 1;
@@ -561,106 +554,110 @@
 			hour12: false
 		});
 	}
-
 </script>
 
-<div class="min-h-screen bg-gray-50 p-4">
-		<div class="max-w-full overflow-x-auto">
-			<!-- Header with dates -->
-			<div class="mb-4 flex">
-				<div class="w-48 flex-shrink-0"></div>
-				{#each dateRange as date}
-					<div class="min-w-32 flex-1 px-2 text-center">
-						<div class="font-semibold text-gray-800">{formatDate(date)}</div>
-						<div class="text-sm text-gray-500">
-							{date.getDate() === new Date().getDate() ? 'Today' : ''}
-						</div>
-					</div>
-				{/each}
-			</div>
-
-			<!-- Calendar rows -->
-			{#each calendarData as calendar}
-				{@const eventRectangles = layoutCalendarEvents(calendar.events, dateRange[0])}
-				{@const maxHeight = Math.max(
-					120,
-					Math.max(...eventRectangles.map((r) => r.y + r.height)) + 12
-				)}
-
-				<div class="mb-3 rounded-lg border bg-white shadow-sm">
-					<div class="flex">
-						<!-- Calendar name -->
-						<div class="w-48 flex-shrink-0 rounded-l-lg border-r bg-gray-100 p-4">
-							<h3 class="text-lg font-bold text-gray-800">{calendar.name}</h3>
-						</div>
-
-						<!-- Days container with masonry layout -->
-						<div class="relative flex flex-1" style="min-height: {maxHeight}px;">
-							{#each dateRange as date, dayIndex}
-								<div class="relative flex-1 border-r border-gray-100 last:border-r-0">
-									<!-- Column background for visual reference -->
-								</div>
-							{/each}
-
-							<!-- Events positioned as rectangles -->
-							{#each eventRectangles as rect}
-								{@const event = rect.event}
-								{@const columnWidth = 100 / 7}
-								<!-- Percentage width per column -->
-
-								<div
-									class="absolute text-sm break-words"
-									style="
-										left: {rect.isPartial && rect.partialType === 'start'
-										? '0'
-										: `calc(${rect.x * columnWidth}% + 0.5rem)`};
-										top: {rect.y}px;
-										width: {rect.isPartial && rect.partialType === 'end'
-										? `calc(${rect.width * columnWidth}% + 0.5rem)`
-										: rect.isPartial && rect.partialType === 'start'
-											? `calc(${rect.width * columnWidth}% - 0.5rem)`
-											: rect.isPartial && rect.partialType === 'both'
-												? '100%'
-												: `calc(${rect.width * columnWidth}% - 1rem)`};
-										height: {rect.height}px;
-										z-index: 10;
-									"
-								>
-									{#if isAllDayEvent(event)}
-										<div
-											class="flex h-full flex-col justify-center bg-blue-100 px-2 py-1 text-blue-800 shadow-sm
-											{rect.isPartial && rect.partialType === 'start'
-												? 'rounded-r border-t border-r border-b'
-												: rect.isPartial && rect.partialType === 'end'
-													? 'rounded-l border-t border-b border-l'
-													: rect.isPartial && rect.partialType === 'both'
-														? 'border-t border-b'
-														: 'rounded border'}"
-										>
-											{event.summary}
-										</div>
-									{:else}
-										<div
-											class="flex h-full flex-col justify-center bg-orange-100 px-2 py-1 text-orange-800 shadow-sm
-											{rect.isPartial && rect.partialType === 'start'
-												? 'rounded-r border-t border-r border-b border-l-4 border-l-orange-400'
-												: rect.isPartial && rect.partialType === 'end'
-													? 'rounded-l border-t border-b border-l border-l-4 border-l-orange-400'
-													: rect.isPartial && rect.partialType === 'both'
-														? 'border-t border-b border-l-4 border-l-orange-400'
-														: 'rounded border-l-4 border-l-orange-400'}"
-										>
-											<div class="text-xs">
-												<span class="font-semibold">{formatEventTime(event)}</span>
-												{event.summary}
-											</div>
-										</div>
-									{/if}
-								</div>
-							{/each}
-						</div>
+<div class="min-h-screen p-2">
+	<div class="max-w-full overflow-x-auto">
+		<!-- Header with dates -->
+		<div class="mb-0 flex">
+			<div class="w-24 flex-shrink-0"></div>
+			{#each dateRange as date}
+				<div class="flex-1 px-2 text-center">
+					<div
+						class="text-xs font-semibold {date.getDate() === new Date().getDate()
+							? 'text--black '
+							: 'text--gray-3'}"
+					>
+						{formatDate(date)}
 					</div>
 				</div>
 			{/each}
 		</div>
+
+		<!-- Calendar rows -->
+		{#each calendarData as calendar}
+			{@const eventRectangles = layoutCalendarEvents(calendar.events, dateRange[0])}
+			{@const maxHeight = Math.max(
+				120,
+				Math.max(...eventRectangles.map((r) => r.y + r.height)) + 12
+			)}
+
+			<div class="mb-1 rounded-lg border bg-white shadow-sm">
+				<div class="flex">
+					<!-- Calendar name -->
+					<div class="bg-gray-7 w-24 flex-shrink-0 rounded-l-lg border-r p-4">
+						<h3 class="text-stroke text-stroke--medium text-xs font-bold text-gray-800">
+							{calendar.name}
+						</h3>
+					</div>
+
+					<!-- Days container with masonry layout -->
+					<div class="relative flex flex-1" style="min-height: {maxHeight}px;">
+						{#each dateRange as date, dayIndex}
+							<div class="relative flex-1 border-r border-gray-100 last:border-r-0">
+								<!-- Column background for visual reference -->
+							</div>
+						{/each}
+
+						<!-- Events positioned as rectangles -->
+						{#each eventRectangles as rect}
+							{@const event = rect.event}
+							{@const columnWidth = 100 / 7}
+							<!-- Percentage width per column -->
+
+							<div
+								class="text-stroke text-stroke--medium text--black absolute text-[10px] break-words"
+								style="
+										left: {rect.isPartial && rect.partialType === 'start'
+									? '0'
+									: `calc(${rect.x * columnWidth}% + 0.5rem)`};
+										top: {rect.y}px;
+										width: {rect.isPartial && rect.partialType === 'end'
+									? `calc(${rect.width * columnWidth}% + 0.5rem)`
+									: rect.isPartial && rect.partialType === 'start'
+										? `calc(${rect.width * columnWidth}% - 0.5rem)`
+										: rect.isPartial && rect.partialType === 'both'
+											? '100%'
+											: `calc(${rect.width * columnWidth}% - 1rem)`};
+										height: {rect.height}px;
+										z-index: 10;
+									"
+							>
+								{#if isAllDayEvent(event)}
+									<div
+										class="bg-gray-6 flex h-full flex-col justify-center px-2 py-0
+											{rect.isPartial && rect.partialType === 'start'
+											? 'rounded-r border-t border-r border-b'
+											: rect.isPartial && rect.partialType === 'end'
+												? 'rounded-l border-t border-b border-l'
+												: rect.isPartial && rect.partialType === 'both'
+													? 'border-t border-b'
+													: 'rounded border'}"
+									>
+										{event.summary}
+									</div>
+								{:else}
+									<div
+										class="bg-gray-6 flex h-full flex-col justify-center px-2 py-0
+											{rect.isPartial && rect.partialType === 'start'
+											? 'rounded-r border-t border-r border-b border-l-4 border-l-black'
+											: rect.isPartial && rect.partialType === 'end'
+												? 'rounded-l border-t border-b border-l border-l-4 border-l-black'
+												: rect.isPartial && rect.partialType === 'both'
+													? 'border-t border-b border-l-4 border-black'
+													: 'rounded border-l-4 border-black'}"
+									>
+										<div class="">
+											<span class="font-semibold">{formatEventTime(event)}</span>
+											{event.summary}
+										</div>
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				</div>
+			</div>
+		{/each}
+	</div>
 </div>
