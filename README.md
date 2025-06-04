@@ -39,7 +39,20 @@ npm run dev
 
 ## Configuration
 
-Create a `config.json` file in the project root with your calendar configuration:
+You can configure calendars in two ways:
+
+### Option 1: Environment Variable (Recommended for deployment)
+
+Set the `CONFIG` environment variable with your calendar configuration as JSON:
+
+```bash
+export CONFIG='{"calendars":[{"name":"Work Calendar","icsUrl":"https://your-calendar-provider.com/calendar.ics"},{"name":"Personal Events","icsUrl":"https://another-calendar.com/events.ics"}]}'
+npm run dev
+```
+
+### Option 2: Configuration File
+
+Create a `config.json` file in the project root:
 
 ```json
 {
@@ -55,6 +68,8 @@ Create a `config.json` file in the project root with your calendar configuration
   ]
 }
 ```
+
+**Note:** The environment variable takes precedence over the config file. If `CONFIG` is set, the config file is not required.
 
 Each calendar appears as a separate row in the horizontal layout.
 

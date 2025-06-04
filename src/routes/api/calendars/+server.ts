@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { convertIcsCalendar, type IcsCalendar } from 'ts-ics';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import type { RequestHandler } from './$types';
 
@@ -16,10 +16,27 @@ interface CalendarData {
 
 export const GET: RequestHandler = async () => {
 	try {
-		// Read config from project root
-		const configPath = join(process.cwd(), 'config.json');
-		const configText = readFileSync(configPath, 'utf-8');
-		const config = JSON.parse(configText);
+		let config;
+		
+		// Check for environment variable first
+		const configEnv = process.env.CONFIG;
+		if (configEnv) {
+			try {
+				config = JSON.parse(configEnv);
+			} catch (error) {
+				console.error('Failed to parse CONFIG environment variable:', error);
+				throw new Error('Invalid CONFIG environment variable format');
+			}
+		} else {
+			// Fall back to config file
+			const configPath = join(process.cwd(), 'config.json');
+			if (!existsSync(configPath)) {
+				throw new Error('No config file found and CONFIG environment variable not set');
+			}
+			const configText = readFileSync(configPath, 'utf-8');
+			config = JSON.parse(configText);
+		}
+		
 		const calendars: Calendar[] = config.calendars;
 
 		const calendarData: CalendarData[] = await Promise.all(
