@@ -14,13 +14,44 @@
 
 	console.log('Page data:', data);
 	let calendarData = $derived(data?.calendarData || []);
+	let days = $derived(data?.days || 7);
 
-	// Generate 7-day rolling window with today as second column
+	// Unified layout configuration that scales with number of days
+	const layoutConfig = $derived(() => {
+		const baseColumnWidth = 100 / days; // Percentage width per column
+
+		// Scale factors based on column width - narrower columns need more vertical space
+		const widthFactor = Math.max(0.7, Math.min(1.2, 14 / baseColumnWidth));
+
+		return {
+			// Event heights (scale up when columns are narrow)
+			heights: {
+				compact: Math.round(20 * widthFactor),
+				small: Math.round(45 * widthFactor),
+				medium: Math.round(60 * widthFactor)
+			},
+			// Spacing (tighter when many columns)
+			spacing: {
+				topPadding: Math.max(1, Math.round(3 / Math.sqrt(days))),
+				eventGap: Math.max(1, Math.round(2 / Math.sqrt(days))),
+				bottomMargin: Math.max(2, Math.round(6 / Math.sqrt(days)))
+			},
+			// Typography (smaller text when many narrow columns)
+			text: {
+				fontSize: Math.max(8, Math.round(10 - days * 0.1)),
+				horizontalPadding: Math.max(2, Math.round(3 - days * 0.05))
+			},
+			// Layout
+			columnWidth: baseColumnWidth
+		};
+	});
+
+	// Generate rolling window with today as second column
 	function getDateRange(): Date[] {
 		const dates: Date[] = [];
 		const today = new Date();
 
-		for (let i = -1; i <= 5; i++) {
+		for (let i = -1; i < days - 1; i++) {
 			// Create date at local midnight to avoid timezone issues
 			const targetDate = new Date(today);
 			targetDate.setDate(today.getDate() + i);
@@ -31,7 +62,7 @@
 		return dates;
 	}
 
-	const dateRange = getDateRange();
+	const dateRange = $derived(getDateRange());
 
 	function formatDate(date: Date): string {
 		return date.toLocaleDateString('en-US', {
@@ -165,7 +196,7 @@
 				return false;
 			}
 
-			// Check if event intersects with our exact 7-day window
+			// Check if event intersects with our exact window
 			// Normalize dates to midnight using LOCAL timezone, not UTC
 			const eventDateOnly = new Date(
 				eventStart.getFullYear(),
@@ -202,7 +233,7 @@
 		// Debug: Log events by day to see distribution
 		const eventsByDay: { [key: string]: number } = {};
 		const windowDates: string[] = [];
-		for (let i = 0; i < 7; i++) {
+		for (let i = 0; i < days; i++) {
 			const date = new Date(windowStart);
 			date.setDate(date.getDate() + i);
 			windowDates.push(date.toDateString());
@@ -216,7 +247,7 @@
 			eventsByDay[dayKey] = (eventsByDay[dayKey] || 0) + 1;
 		});
 		console.log('Events by day (after filtering):', eventsByDay);
-		console.log(`Filtered to ${filteredEvents.length} events in the 7-day window`);
+		console.log(`Filtered to ${filteredEvents.length} events in the ${days}-day window`);
 
 		return filteredEvents;
 	}
@@ -227,10 +258,7 @@
 		partialType?: string,
 		width: number = 1
 	): number {
-		// Height levels for event sizing
-		const HEIGHT_COMPACT = 32; // Very compact for multi-day events
-		const HEIGHT_SMALL = 45; // Standard small
-		const HEIGHT_MEDIUM = 62; // Medium for longer content
+		const config = layoutConfig();
 
 		// Calculate text content length
 		let text = event.summary || '';
@@ -241,36 +269,40 @@
 			text = `← ${text} →`; // Add arrows
 		}
 
-		// Different sizing strategy based on event type and width
-		if (width > 1) {
-			// Multi-day events: prioritize compactness
-			if (text.length <= 30) {
-				return HEIGHT_COMPACT; // Very compact for short multi-day
-			} else if (text.length <= 60) {
-				return HEIGHT_SMALL; // Still compact for medium multi-day
+		// Calculate available width for text (accounts for multi-column events)
+		const availableWidth = width * config.columnWidth; // Total width in percentage points
+		const widthFactor = availableWidth / 14; // Normalize to baseline (14% = 1 column at 7 days)
+
+		// Text length thresholds scale with actual available width
+		const baseShortThreshold = 15;
+		const baseMediumThreshold = 32;
+
+		// Scale thresholds based on available width - more width = can fit more text
+		const shortThreshold = Math.round(baseShortThreshold * widthFactor);
+		const mediumThreshold = Math.round(baseMediumThreshold * widthFactor);
+
+		// Different sizing strategy based on event type
+		if (isAllDayEvent(event)) {
+			// All-day events (single or multi-day)
+			if (text.length <= shortThreshold) {
+				return config.heights.compact;
+			} else if (text.length <= mediumThreshold) {
+				return config.heights.small;
 			} else {
-				return HEIGHT_MEDIUM; // Only go to medium for very long multi-day
+				return config.heights.medium;
 			}
 		} else {
-			// Single-day events: optimize for single-line content
-			if (isAllDayEvent(event)) {
-				// All-day single events - most can be compact
-				if (text.length <= 20) {
-					return HEIGHT_COMPACT;
-				} else if (text.length <= 40) {
-					return HEIGHT_SMALL;
-				} else {
-					return HEIGHT_MEDIUM;
-				}
+			// Timed events (single or multi-day)
+			// Timed events are slightly more constrained due to time prefix
+			const timedShortThreshold = Math.round(shortThreshold * 0.9);
+			const timedMediumThreshold = Math.round(mediumThreshold * 0.9);
+
+			if (text.length <= timedShortThreshold) {
+				return config.heights.compact;
+			} else if (text.length <= timedMediumThreshold) {
+				return config.heights.small;
 			} else {
-				// Timed events (time + text on same line now)
-				if (text.length <= 25) {
-					return HEIGHT_COMPACT; // Compact for short timed events
-				} else if (text.length <= 45) {
-					return HEIGHT_SMALL; // Small for medium timed events
-				} else {
-					return HEIGHT_MEDIUM; // Medium for longer timed events
-				}
+				return config.heights.medium;
 			}
 		}
 	}
@@ -310,8 +342,9 @@
 		columnLoads: number[]
 	): { x: number; y: number } {
 		let bestX = x;
-		let bestY = 8; // Start with padding from top
-		const gap = 4; // Gap between events
+		const config = layoutConfig();
+		let bestY = config.spacing.topPadding;
+		const gap = config.spacing.eventGap;
 
 		// Events must stay in their correct day column, but optimize vertical position
 		bestY = findLowestPositionInColumn(columns, x, width, height);
@@ -325,8 +358,9 @@
 		width: number,
 		height: number
 	): number {
-		let y = 4; // Start with padding from top
-		const gap = 2; // Gap between events
+		const config = layoutConfig();
+		let y = config.spacing.topPadding;
+		const gap = config.spacing.eventGap;
 		let attempts = 0; // Safety counter
 		const maxAttempts = 100; // Prevent infinite loops
 
@@ -380,13 +414,13 @@
 
 	function layoutCalendarEvents(events: IcsEvent[], windowStart: Date): EventRectangle[] {
 		const windowEnd = new Date(windowStart);
-		windowEnd.setDate(windowEnd.getDate() + 7);
+		windowEnd.setDate(windowEnd.getDate() + days);
 
 		const relevantEvents = getEventsInWindow(events, windowStart, windowEnd);
 		const rectangles: EventRectangle[] = [];
 
-		// Initialize column space tracking (7 columns for 7 days)
-		const columns: ColumnSpace[] = Array.from({ length: 7 }, (_, i) => ({
+		// Initialize column space tracking
+		const columns: ColumnSpace[] = Array.from({ length: days }, (_, i) => ({
 			column: i,
 			occupiedRanges: []
 		}));
@@ -459,10 +493,10 @@
 				startColumn = 0;
 			}
 
-			if (endColumn > 6) {
+			if (endColumn > days - 1) {
 				isPartial = true;
 				partialType = partialType === 'start' ? 'both' : 'end';
-				endColumn = 6;
+				endColumn = days - 1;
 			}
 
 			const width = Math.max(1, endColumn - startColumn + 1);
@@ -577,15 +611,16 @@
 		<!-- Calendar rows -->
 		{#each calendarData as calendar}
 			{@const eventRectangles = layoutCalendarEvents(calendar.events, dateRange[0])}
-			{@const maxHeight = Math.max(
-				120,
-				Math.max(...eventRectangles.map((r) => r.y + r.height)) + 12
-			)}
+			{@const maxHeight =
+				eventRectangles.length > 0
+					? Math.max(...eventRectangles.map((r) => r.y + r.height)) +
+						layoutConfig().spacing.bottomMargin
+					: Math.max(20, layoutConfig().spacing.topPadding + layoutConfig().spacing.bottomMargin)}
 
 			<div class="mb-1 rounded-lg border bg-white shadow-sm">
 				<div class="flex">
 					<!-- Calendar name -->
-					<div class="bg-gray-7 w-24 flex-shrink-0 rounded-l-lg border-r p-4">
+					<div class="bg-gray-7 w-28 flex-shrink-0 rounded-l-lg border-r p-4">
 						<h3 class="text-stroke text-stroke--medium text-xs font-bold text-gray-800">
 							{calendar.name}
 						</h3>
@@ -594,7 +629,7 @@
 					<!-- Days container with masonry layout -->
 					<div class="relative flex flex-1" style="min-height: {maxHeight}px;">
 						{#each dateRange as date, dayIndex}
-							<div class="relative flex-1 border-r border-gray-100 last:border-r-0">
+							<div class="border--v-4 relative flex-1">
 								<!-- Column background for visual reference -->
 							</div>
 						{/each}
@@ -602,30 +637,30 @@
 						<!-- Events positioned as rectangles -->
 						{#each eventRectangles as rect}
 							{@const event = rect.event}
-							{@const columnWidth = 100 / 7}
-							<!-- Percentage width per column -->
+							{@const config = layoutConfig()}
 
 							<div
-								class="text-stroke text-stroke--medium text--black absolute text-[10px] break-words"
+								class="text-stroke text-stroke--medium text--black absolute leading-tight break-words"
 								style="
+										font-size: {config.text.fontSize}px;
 										left: {rect.isPartial && rect.partialType === 'start'
 									? '0'
-									: `calc(${rect.x * columnWidth}% + 0.5rem)`};
+									: `calc(${rect.x * config.columnWidth}% + 0.5rem)`};
 										top: {rect.y}px;
 										width: {rect.isPartial && rect.partialType === 'end'
-									? `calc(${rect.width * columnWidth}% + 0.5rem)`
+									? `calc(${rect.width * config.columnWidth}% + 0.5rem)`
 									: rect.isPartial && rect.partialType === 'start'
-										? `calc(${rect.width * columnWidth}% - 0.5rem)`
+										? `calc(${rect.width * config.columnWidth}% - 0.5rem)`
 										: rect.isPartial && rect.partialType === 'both'
 											? '100%'
-											: `calc(${rect.width * columnWidth}% - 1rem)`};
+											: `calc(${rect.width * config.columnWidth}% - 1rem)`};
 										height: {rect.height}px;
 										z-index: 10;
 									"
 							>
 								{#if isAllDayEvent(event)}
 									<div
-										class="bg-gray-6 flex h-full flex-col justify-center px-2 py-0
+										class="bg-gray-6 flex h-full flex-col justify-center py-0
 											{rect.isPartial && rect.partialType === 'start'
 											? 'rounded-r border-t border-r border-b'
 											: rect.isPartial && rect.partialType === 'end'
@@ -633,12 +668,14 @@
 												: rect.isPartial && rect.partialType === 'both'
 													? 'border-t border-b'
 													: 'rounded border'}"
+										style="padding-left: {config.text.horizontalPadding}px; padding-right: {config
+											.text.horizontalPadding}px;"
 									>
 										{event.summary}
 									</div>
 								{:else}
 									<div
-										class="bg-gray-6 flex h-full flex-col justify-center px-2 py-0
+										class="bg-gray-6 flex h-full flex-col justify-center py-0
 											{rect.isPartial && rect.partialType === 'start'
 											? 'rounded-r border-t border-r border-b border-l-4 border-l-black'
 											: rect.isPartial && rect.partialType === 'end'
@@ -646,6 +683,8 @@
 												: rect.isPartial && rect.partialType === 'both'
 													? 'border-t border-b border-l-4 border-black'
 													: 'rounded border-l-4 border-black'}"
+										style="padding-left: {config.text.horizontalPadding}px; padding-right: {config
+											.text.horizontalPadding}px;"
 									>
 										<div class="">
 											<span class="font-semibold">{formatEventTime(event)}</span>

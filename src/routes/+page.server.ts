@@ -80,8 +80,13 @@ export const load: PageServerLoad = async ({ request, url }) => {
 			})
 		);
 
+		// Get days parameter from URL, default to 7
+		const daysParam = url.searchParams.get('days');
+		const days = daysParam ? Math.max(1, Math.min(30, parseInt(daysParam, 10))) : 7;
+
 		return {
-			calendarData
+			calendarData,
+			days
 		};
 	} catch (error) {
 		console.error('Failed to load calendars:', error);
