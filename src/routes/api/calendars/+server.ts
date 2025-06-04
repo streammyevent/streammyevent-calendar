@@ -3,6 +3,7 @@ import { convertIcsCalendar, type IcsCalendar } from 'ts-ics';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import type { RequestHandler } from './$types';
+import { CONFIG } from '$env/static/private';
 
 interface Calendar {
 	name: string;
@@ -16,13 +17,11 @@ interface CalendarData {
 
 export const GET: RequestHandler = async () => {
 	try {
-		let config;
-		
-		// Check for environment variable first
-		const configEnv = process.env.CONFIG;
-		if (configEnv) {
+		let finalConfig;
+
+		if (CONFIG) {
 			try {
-				config = JSON.parse(configEnv);
+				finalConfig = JSON.parse(CONFIG);
 			} catch (error) {
 				console.error('Failed to parse CONFIG environment variable:', error);
 				throw new Error('Invalid CONFIG environment variable format');
@@ -34,23 +33,23 @@ export const GET: RequestHandler = async () => {
 				throw new Error('No config file found and CONFIG environment variable not set');
 			}
 			const configText = readFileSync(configPath, 'utf-8');
-			config = JSON.parse(configText);
+			finalConfig = JSON.parse(configText);
 		}
-		
-		const calendars: Calendar[] = config.calendars;
+
+		const calendars: Calendar[] = finalConfig.calendars;
 
 		const calendarData: CalendarData[] = await Promise.all(
 			calendars.map(async (calendar) => {
 				try {
 					const icsResponse = await fetch(calendar.icsUrl);
-					
+
 					if (!icsResponse.ok) {
 						throw new Error(`HTTP ${icsResponse.status}: ${icsResponse.statusText}`);
 					}
-					
+
 					const icsText = await icsResponse.text();
 					const parsed = convertIcsCalendar(undefined, icsText);
-					
+
 					return {
 						name: calendar.name,
 						events: parsed.events || []
