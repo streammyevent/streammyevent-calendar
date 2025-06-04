@@ -1,8 +1,8 @@
 <script lang="ts">
-	import {
-		extendByRecurrenceRule,
-		type IcsEvent
-	} from 'ts-ics';
+	export const ssr = true;
+	export const csr = false;
+
+	import { extendByRecurrenceRule, type IcsEvent } from 'ts-ics';
 	import type { PageData } from './$types';
 
 	interface CalendarData {
@@ -113,7 +113,9 @@
 						end: expandedWindowEnd
 					});
 
-					console.log(`Found ${recurringDates.length} recurring instances for ${removeEmojis(event.summary || '')}`);
+					console.log(
+						`Found ${recurringDates.length} recurring instances for ${removeEmojis(event.summary || '')}`
+					);
 
 					// Create individual event instances for each occurrence
 					recurringDates.forEach((occurrenceDate, index) => {
@@ -670,7 +672,7 @@
 							>
 								{#if isAllDayEvent(event)}
 									<div
-										class="bg-black flex h-full flex-col justify-center py-0
+										class="flex h-full flex-col justify-center bg-black py-0
 											{rect.isPartial && rect.partialType === 'start'
 											? 'rounded-r border-t border-r border-b'
 											: rect.isPartial && rect.partialType === 'end'
@@ -685,7 +687,7 @@
 									</div>
 								{:else}
 									<div
-										class="bg-black flex h-full flex-col justify-center py-0
+										class="flex h-full flex-col justify-center bg-black py-0
 											{rect.isPartial && rect.partialType === 'start'
 											? 'rounded-r border-t border-r border-b border-l-4 border-l-black'
 											: rect.isPartial && rect.partialType === 'end'
