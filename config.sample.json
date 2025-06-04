@@ -1,4 +1,5 @@
 {
+	"authToken": "your-auth-token-here",
 	"calendars": [
 		{
 			"name": "Moon Phases",
