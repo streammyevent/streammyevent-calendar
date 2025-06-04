@@ -113,7 +113,7 @@
 						end: expandedWindowEnd
 					});
 
-					console.log(`Found ${recurringDates.length} recurring instances for ${event.summary}`);
+					console.log(`Found ${recurringDates.length} recurring instances for ${removeEmojis(event.summary || '')}`);
 
 					// Create individual event instances for each occurrence
 					recurringDates.forEach((occurrenceDate, index) => {
@@ -261,7 +261,7 @@
 		const config = layoutConfig();
 
 		// Calculate text content length
-		let text = event.summary || '';
+		let text = removeEmojis(event.summary || '');
 		if (!isAllDayEvent(event) && !isPartial) {
 			text = `${formatEventTime(event)} ${text}`;
 		}
@@ -588,6 +588,16 @@
 			hour12: false
 		});
 	}
+
+	function removeEmojis(text: string): string {
+		// Remove specific emojis: ✅ and 🟠
+		const original = text;
+		const cleaned = text.replace(/✅|🟠/g, '').trim();
+		if (original !== cleaned) {
+			console.log('Emoji removal:', { original, cleaned });
+		}
+		return cleaned;
+	}
 </script>
 
 <div class="min-h-screen p-2">
@@ -640,7 +650,7 @@
 							{@const config = layoutConfig()}
 
 							<div
-								class="text-stroke text-stroke--medium text--black absolute leading-tight break-words"
+								class="text--white absolute leading-tight break-words"
 								style="
 										font-size: {config.text.fontSize}px;
 										left: {rect.isPartial && rect.partialType === 'start'
@@ -660,7 +670,7 @@
 							>
 								{#if isAllDayEvent(event)}
 									<div
-										class="bg-gray-6 flex h-full flex-col justify-center py-0
+										class="bg-black flex h-full flex-col justify-center py-0
 											{rect.isPartial && rect.partialType === 'start'
 											? 'rounded-r border-t border-r border-b'
 											: rect.isPartial && rect.partialType === 'end'
@@ -671,11 +681,11 @@
 										style="padding-left: {config.text.horizontalPadding}px; padding-right: {config
 											.text.horizontalPadding}px;"
 									>
-										{event.summary}
+										{removeEmojis(event.summary || '')}
 									</div>
 								{:else}
 									<div
-										class="bg-gray-6 flex h-full flex-col justify-center py-0
+										class="bg-black flex h-full flex-col justify-center py-0
 											{rect.isPartial && rect.partialType === 'start'
 											? 'rounded-r border-t border-r border-b border-l-4 border-l-black'
 											: rect.isPartial && rect.partialType === 'end'
@@ -688,7 +698,7 @@
 									>
 										<div class="">
 											<span class="font-semibold">{formatEventTime(event)}</span>
-											{event.summary}
+											{removeEmojis(event.summary || '')}
 										</div>
 									</div>
 								{/if}
