@@ -1,25 +1,19 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import {
-		convertIcsCalendar,
 		extendByRecurrenceRule,
-		type IcsCalendar,
 		type IcsEvent
 	} from 'ts-ics';
-
-	interface Calendar {
-		name: string;
-		icsUrl: string;
-	}
+	import type { PageData } from './$types';
 
 	interface CalendarData {
 		name: string;
 		events: IcsEvent[];
 	}
 
-	let calendars: Calendar[] = [];
-	let calendarData: CalendarData[] = [];
-	let loading = true;
+	let { data }: { data: PageData } = $props();
+	
+	console.log('Page data:', data);
+	let calendarData = $derived(data?.calendarData || []);
 
 	// Generate 7-day rolling window with today as second column
 	function getDateRange(): Date[] {
@@ -568,26 +562,9 @@
 		});
 	}
 
-	async function loadCalendars() {
-		try {
-			const response = await fetch('/api/calendars');
-			calendarData = await response.json();
-		} catch (error) {
-			console.error('Failed to load calendars:', error);
-		} finally {
-			loading = false;
-		}
-	}
-
-	onMount(loadCalendars);
 </script>
 
 <div class="min-h-screen bg-gray-50 p-4">
-	{#if loading}
-		<div class="flex h-64 items-center justify-center">
-			<div class="text-lg text-gray-600">Loading calendars...</div>
-		</div>
-	{:else}
 		<div class="max-w-full overflow-x-auto">
 			<!-- Header with dates -->
 			<div class="mb-4 flex">
@@ -686,5 +663,4 @@
 				</div>
 			{/each}
 		</div>
-	{/if}
 </div>
