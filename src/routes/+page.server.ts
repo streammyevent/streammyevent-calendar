@@ -2,8 +2,11 @@ import { convertIcsCalendar } from 'ts-ics';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { error } from '@sveltejs/kit';
-import { CONFIG } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import type { PageServerLoad } from './$types';
+
+export const ssr = true;
+export const csr = false;
 
 interface Calendar {
 	name: string;
@@ -19,7 +22,7 @@ export const load: PageServerLoad = async ({ request, url }) => {
 	let finalConfig;
 
 	// Check for environment variable first
-	const configEnv = CONFIG;
+	const configEnv = env.CONFIG;
 	if (configEnv) {
 		try {
 			finalConfig = JSON.parse(configEnv);
